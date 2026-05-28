@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>坦途多赛制高级战术看板</title>
+    <!-- 引入 Tailwind CSS 4.0 与 Google SF Pro 级字体、图标库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #080d1a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: none; }
+        
+        /* 拟物高级渐变球场视口 */
+        .stage-area { height: calc(100vh - 190px); width: 100%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at center, #0f1c3f 0%, #070b19 100%); }
+        
+        /* 动态场形包装 */
+        .pitch-box {
+            width: 94vw;
+            aspect-ratio: 105 / 68;
+            position: relative;
+            transform-origin: center center;
+            transition: aspect-ratio 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 12px; }
+        #bgCanvas { z-index: 1; border: 2px solid rgba(255, 255, 255, 0.15); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
+        #drawCanvas { z-index: 5; pointer-events: none; }
+        #uiCanvas { z-index: 10; touch-action: none; }
+
+        /* 高级毛玻璃微光 DOCK 效果 */
+        .glass-dock { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-pill { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); }
+
+        /* 选中激活状态的极光绿 */
+        .active-tool { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; color: #ffffff !important; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); border-color: transparent !important; }
+        .scroll-x::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="flex flex-col justify-between h-full text-slate-200">
+
+    <!-- 1. 顶置控制栏 -->
+    <header class="h-[55px] bg-slate-950/80 border-b border-slate-900/60 px-4 flex justify-between items-center z-40 backdrop-blur-md">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-slate-950 shadow-inner text-sm">T</div>
+            <div>
+                <span class="text-xs font-bold tracking-wide block text-white">坦途战术大师</span>
+                <span class="text-[9px] text-slate-400 block -mt-0.5" id="pitch-tag">FIFA 标准 11 人场</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-1.5">
+            <button onclick="toggleGrid()" id="btn-grid" class="p-1.5 text-xs text-slate-300 bg-slate-900 border border-slate-800 rounded-lg px-2.5 transition active:scale-95"><i class="fas fa-th-large mr-1 opacity-70"></i>网格</button>
+            <button onclick="changeView()" id="btn-view" class="p-1.5 text-xs text-slate-300 bg-slate-900 border border-slate-800 rounded-lg px-2.5 transition active:scale-95">全场</button>
+            <button onclick="exportTactics()" class="p-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-3 shadow-lg shadow-indigo-600/20 transition active:scale-95"><i class="fas fa-share-square mr-1"></i>导出图片</button>
+        </div>
+    </header>
+
+    <!-- 2. 核心动态画布视口 -->
+    <main class="stage-area" id="viewBox">
+        <div id="pitchTransformWrapper" class="pitch-box">
+            <canvas id="bgCanvas"></canvas>
+            <canvas id="drawCanvas"></canvas>
+            <canvas id="uiCanvas"></canvas>
+        </div>
+    </main>
+
+    <!-- 3. 数字化底层综合控制舱 -->
+    <section class="glass-dock pb-safe z-40">
+        
+        <!-- 悬浮微调舱 -->
+        <div id="m-editor" class="h-[55px] bg-slate-950/90 px-4 border-b border-slate-900 flex items-center justify-between hidden animate-fade-in">
+            <div class="flex items-center space-x-2 text-xs">
+                <span class="text-amber-400 font-bold flex items-center"><i class="fas fa-marker mr-1"></i> 编辑:</span>
+                <input type="text" id="m-name" oninput="syncMobilePlayer()" class="w-16 bg-slate-900 border border-slate-800 text-center rounded-md px-1.5 py-0.5 text-white focus:border-emerald-500 focus:outline-none">
+                <input type="number" id="m-num" oninput="syncMobilePlayer()" class="w-11 bg-slate-900 border border-slate-800 text-center rounded-md px-1 py-0.5 text-white focus:border-emerald-500 focus:outline-none">
+            </div>
+            <div class="flex space-x-1.5">
+                <button onclick="duplicatePlayer()" class="bg-slate-900 border border-slate-800 text-slate-300 text-[11px] px-2.5 py-1 rounded-md active:bg-slate-800"><i class="far fa-copy mr-1"></i>克隆</button>
+                <button onclick="deletePlayer()" class="bg-rose-950/60 text-rose-400 text-[11px] px-2.5 py-1 rounded-md border border-rose-900/40 active:bg-rose-900"><i class="fas fa-trash-alt mr-1"></i>删除</button>
+            </div>
+        </div>
+
+        <!-- 多赛制阵型舱 (已将5人制全面升级为6人制) -->
+        <div class="flex overflow-x-auto scroll-x px-3 py-2 space-x-2 bg-slate-950/30 border-b border-slate-900/60 items-center">
+            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800">赛制阵型</span>
+            
+            <!-- 6人制 -->
+            <button onclick="switchSystem(6, '221')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">六人制 2-2-1</button>
+            <button onclick="switchSystem(6, '311')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">六人制 3-1-1</button>
+            
+            <!-- 7人制 -->
+            <button onclick="switchSystem(7, '231')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">七人制 2-3-1</button>
+            <button onclick="switchSystem(7, '321')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">七人制 3-2-1</button>
+            
+            <!-- 8人制 -->
+            <button onclick="switchSystem(8, '331')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">八人制 3-3-1</button>
+            <button onclick="switchSystem(8, '421')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">八人制 4-2-1</button>
+            
+            <!-- 11人制 -->
+            <button onclick="switchSystem(11, '442')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap active-tool">十一人 4-4-2</button>
+            <button onclick="switchSystem(11, '433')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">十一人 4-3-3</button>
+
+            <div class="w-px bg-slate-800 self-stretch mx-1"></div>
+            <button onclick="addExtra('home')" class="bg-red-950/40 text-red-400 text-xs px-2.5 py-1 rounded-full border border-red-900/40 whitespace-nowrap">+ 红员</button>
+            <button onclick="addExtra('away')" class="bg-blue-950/40 text-blue-400 text-xs px-2.5 py-1 rounded-full border border-blue-900/40 whitespace-nowrap">+ 蓝员</button>
+            <button onclick="addExtra('ball')" class="bg-white text-slate-950 text-xs px-3 py-1 rounded-full font-bold whitespace-nowrap shadow-md">⚽ 加球</button>
+        </div>
+
+        <!-- 战术画笔面板 -->
+        <div class="h-[65px] grid grid-cols-5 items-center justify-items-center text-center px-2">
+            <button onclick="changeMTool('select')" id="m-tool-select" class="w-[92%] h-[46px] rounded-xl text-slate-400 bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center transition active:scale-95 active-tool">
+                <i class="fas fa-compress-arrows-alt text-sm"></i><span class="text-[9px] mt-0.5 font-semibold">选择挪动</span>
+            </button>
+            <button onclick="changeMTool('line')" id="m-tool-line" class="w-[92%] h-[46px] rounded-xl text-slate-400 bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center transition active:scale-95">
+                <i class="fas fa-long-arrow-alt-right text-base"></i><span class="text-[9px] mt-0.5 font-semibold">跑位实线</span>
+            </button>
+            <button onclick="changeMTool('dash')" id="m-tool-dash" class="w-[92%] h-[46px] rounded-xl text-slate-400 bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center transition active:scale-95">
+                <i class="fas fa-ellipsis-h text-sm"></i><span class="text-[9px] mt-0.5 font-semibold">传球虚线</span>
+            </button>
+            <button onclick="changeMTool('curve')" id="m-tool-curve" class="w-[92%] h-[46px] rounded-xl text-slate-400 bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center transition active:scale-95">
+                <i class="fas fa-bezier-curve text-sm"></i><span class="text-[9px] mt-0.5 font-semibold">盘带弧线</span>
+            </button>
+            <button onclick="clearCanvasLines()" class="w-[92%] h-[46px] rounded-xl text-rose-400 bg-rose-950/20 border border-rose-900/30 flex flex-col items-center justify-center transition active:bg-rose-900/30">
+                <i class="fas fa-trash-alt text-sm"></i><span class="text-[9px] mt-0.5 font-semibold">清空轨迹</span>
+            </button>
+        </div>
+    </section>
+
+    <script>
+        // --- 核心配置 ---
+        const bgCanvas = document.getElementById('bgCanvas');
+        const drawCanvas = document.getElementById('drawCanvas');
+        const uiCanvas = document.getElementById('uiCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const drawCtx = drawCanvas.getContext('2d');
+        const uiCtx = uiCanvas.getContext('2d');
+        const pitchTransformWrapper = document.getElementById('pitchTransformWrapper');
+
+        let toolMode = 'select';
+        let isGridVisible = false;
+        let viewType = 'full';
+        let activeSystem = 11;
+
+        let currentScale = 1; let offsetX = 0; let offsetY = 0;
+        let touchStartDist = 0; let lastTouchX = 0; let lastTouchY = 0;
+
+        let players = []; let tacticalLines = [];
+        let activeLine = null; let activePlayer = null; let movingPlayer = null;
+
+        // --- 多赛制阵型坐标中心 (已变更为6人制) ---
+        const systemFormations = {
+            // 6人制 2-2-1
+            "6_221": [
+                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
+                { id:2, num:3, name:'DF', team:'home', x:0.25, y:0.3 }, { id:3, num:4, name:'DF', team:'home', x:0.25, y:0.7 },
+                { id:4, num:8, name:'MF', team:'home', x:0.48, y:0.3 }, { id:5, num:10, name:'MF', team:'home', x:0.48, y:0.7 },
+                { id:6, num:9, name:'FW', team:'home', x:0.73, y:0.5 }
+            ],
+            // 6人制 3-1-1
+            "6_311": [
+                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
+                { id:2, num:2, name:'LD', team:'home', x:0.25, y:0.22 }, { id:3, num:5, name:'CD', team:'home', x:0.22, y:0.5 }, { id:4, num:3, name:'RD', team:'home', x:0.25, y:0.78 },
+                { id:5, num:8, name:'MF', team:'home', x:0.50, y:0.5 },
+                { id:6, num:9, name:'FW', team:'home', x:0.73, y:0.5 }
+            ],
+            // 7人制
+            "7_231": [
+                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
+                { id:2, num:3, name:'CB', team:'home', x:0.24, y:0.30 }, { id:3, num:4, name:'CB', team:'home', x:0.24, y:0.70 },
+                { id:4, num:7, name:'LM', team:'home', x:0.48, y:0.18 }, { id:5, num:8, name:'CM', team:'home', x:0.46, y:0.5 }, { id:6, num:11, name:'RM', team:'home', x:0.48, y:0.82 },
+                { id:7, num:9, name:'FW', team:'home', x:0.72, y:0.5 }
+            ],
+            "7_321": [
+                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
+                { id:2, num:2, name:'LB', team:'home', x:0.24, y:0.20 }, { id:3, num:5, name:'CB', team:'home', x:0.22, y:0.5 }, { id:4, num:3, name:'RB', team:'home', x:0.24, y:0.80 },
+                { id:5, num:8, name:'CM', team:'home', x:0.48, y:0.33 }, { id:6, num:10, name:'CM', team:'home', x:0.48, y:0.67 },
+                { id:7, num:9, name:'FW', team:'home', x:0.72, y:0.5 }
+            ],
+            // 8人制
+            "8_331": [
+                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
+                { id:2, num:2, name:'LB', team:'home', x:0.24, y:0.22 }, { id:3, num:4, name:'CB', team:'home', x:0.21, y:0.5 }, { id:4, num:3, name:'RB', team:'home', x:0.24, y:0.78 },
+                { id:5, num:7, name:'LM', team:'home', x:0.48, y:0.20 }, { id:6, num:8, name:'CM', team:'home', x:0.46, y:0.5 }, { id:7, num:11, name:'RM', team:'home', x:0.48, y:0.80 },
+                { id:8, num:9, name:'ST', team:'home', x:0.72, y:0.5 }
+            ],
+            "8_421": [
+                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
+                { id:2, num:2, name:'LB', team:'home', x:0.24, y:0.15 }, { id:3, num:5, name:'CB', team:'home', x:0.21, y:0.37 }, { id:4, num:6, name:'CB', team:'home', x:0.21, y:0.63 }, { id:5, num:3, name:'RB', team:'home', x:0.24, y:0.85 },
+                { id:6, num:8, name:'CM', team:'home', x:0.48, y:0.33 }, { id:7, num:10, name:'CM', team:'home', x:0.48, y:0.67 },
+                { id:8, num:9, name:'ST', team:'home', x:0.72, y:0.5 }
+            ],
+            // 11人制
+            "11_442": [
+                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
+                { id:2, num:2, name:'RB', team:'home', x:0.24, y:0.16 }, { id:3, num:5, name:'CB', team:'home', x:0.21, y:0.38 }, { id:4, num:6, name:'CB', team:'home', x:0.21, y:0.62 }, { id:5, num:3, name:'LB', team:'home', x:0.24, y:0.84 },
+                { id:6, num:7, name:'RM', team:'home', x:0.46, y:0.16 }, { id:7, num:8, name:'CM', team:'home', x:0.43, y:0.38 }, { id:8, num:10, name:'CM', team:'home', x:0.43, y:0.62 }, { id:9, num:11, name:'LM', team:'home', x:0.46, y:0.84 },
+                { id:10, num:9, name:'ST', team:'home', x:0.68, y:0.33 }, { id:11, num:19, name:'ST', team:'home', x:0.68, y:0.67 }
+            ],
+            "11_433": [
+                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
+                { id:2, num:2, name:'RB', team:'home', x:0.24, y:0.15 }, { id:3, num:5, name:'CB', team:'home', x:0.21, y:0.36 }, { id:4, num:6, name:'CB', team:'home', x:0.21, y:0.64 }, { id:5, num:3, name:'LB', team:'home', x:0.24, y:0.85 },
+                { id:6, num:16, name:'DM', team:'home', x:0.38, y:0.5 }, { id:7, num:8, name:'CM', team:'home', x:0.48, y:0.28 }, { id:8, num:21, name:'CM', team:'home', x:0.48, y:0.72 },
+                { id:9, num:7, name:'RW', team:'home', x:0.7, y:0.18 }, { id:10, num:9, name:'ST', team:'home', x:0.73, y:0.5 }, { id:11, num:11, name:'LW', team:'home', x:0.7, y:0.82 }
+            ]
+        };
+
+        function buildAwayMirror(homeArr) {
+            return homeArr.map(p => ({
+                id: p.id + 200, num: p.num, name: p.name, team: 'away', x: 1 - p.x, y: 1 - p.y
+            }));
+        }
+
+        // --- 绘制绿茵场 ---
+        function drawDynamicPitch() {
+            const w = bgCanvas.width; const h = bgCanvas.height;
+            
+            bgCtx.fillStyle = '#113318'; bgCtx.fillRect(0, 0, w, h);
+            bgCtx.fillStyle = '#163d1e';
+            const stripeW = w / 12;
+            for(let i=0; i<12; i+=2) { bgCtx.fillRect(i * stripeW, 0, stripeW, h); }
+
+            bgCtx.strokeStyle = 'rgba(255,255,255,0.85)'; bgCtx.lineWidth = 2.5;
+            bgCtx.strokeRect(0, 0, w, h);
+
+            bgCtx.beginPath(); bgCtx.moveTo(w/2, 0); bgCtx.lineTo(w/2, h); bgCtx.stroke();
+            bgCtx.beginPath(); bgCtx.arc(w/2, h/2, h * (activeSystem === 6 ? 0.15 : 0.13), 0, Math.PI * 2); bgCtx.stroke();
+            bgCtx.fillStyle = '#ffffff'; bgCtx.beginPath(); bgCtx.arc(w/2, h/2, 3.5, 0, Math.PI * 2); bgCtx.fill();
+
+            // 6人制采用半紧凑防区线条，7/8/11人制采用传统大禁区布局
+            if (activeSystem === 6) {
+                const r6 = h * 0.3;
+                bgCtx.beginPath(); bgCtx.arc(0, h/2, r6, -0.5 * Math.PI, 0.5 * Math.PI); bgCtx.stroke();
+                bgCtx.beginPath(); bgCtx.arc(w, h/2, r6, 0.5 * Math.PI, 1.5 * Math.PI); bgCtx.stroke();
+            } else {
+                let boxW = w * 0.157; let boxH = h * 0.60; let smallW = w * 0.052; let smallH = h * 0.264;
+                if(activeSystem === 7 || activeSystem === 8) { boxW = w * 0.14; boxH = h * 0.55; }
+
+                bgCtx.strokeRect(0, (h - boxH)/2, boxW, boxH); bgCtx.strokeRect(0, (h - smallH)/2, smallW, smallH);
+                bgCtx.beginPath(); bgCtx.arc(boxW * 0.7, h / 2, 2.5, 0, Math.PI * 2); bgCtx.fill();
+                
+                bgCtx.strokeRect(w - boxW, (h - boxH)/2, boxW, boxH); bgCtx.strokeRect(w - smallW, (h - smallH)/2, smallW, smallH);
+                bgCtx.beginPath(); bgCtx.arc(w - boxW * 0.7, h / 2, 2.5, 0, Math.PI * 2); bgCtx.fill();
+            }
+
+            if (isGridVisible) {
+                bgCtx.save(); bgCtx.strokeStyle = 'rgba(255,255,255,0.06)'; bgCtx.lineWidth = 1;
+                for(let i=1; i<10; i++) {
+                    bgCtx.beginPath(); bgCtx.moveTo((i/10)*w, 0); bgCtx.lineTo((i/10)*w, h); bgCtx.stroke();
+                    bgCtx.beginPath(); bgCtx.moveTo(0, (i/10)*h); bgCtx.lineTo(w, (i/10)*h); bgCtx.stroke();
+                }
+                bgCtx.restore();
+            }
+        }
+
+        function updateLinesCanvas() {
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            tacticalLines.forEach(line => renderSingleLine(drawCtx, line));
+        }
+
+        function updateUICanvas() {
+            uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
+            const w = uiCanvas.width; const h = uiCanvas.height;
+
+            players.forEach(p => {
+                const cx = p.x * w; const cy = p.y * h;
+                const size = p.type === 'ball' ? 9 : 15;
+
+                uiCtx.save();
+                if (p === activePlayer) {
+                    uiCtx.strokeStyle = '#f59e0b'; uiCtx.lineWidth = 4;
+                    uiCtx.beginPath(); uiCtx.arc(cx, cy, size + 4, 0, Math.PI*2); uiCtx.stroke();
+                }
+
+                if (p.type === 'ball') {
+                    uiCtx.fillStyle = '#ffffff'; uiCtx.strokeStyle = '#000000'; uiCtx.lineWidth = 2;
+                    uiCtx.beginPath(); uiCtx.arc(cx, cy, size, 0, Math.PI*2); uiCtx.fill(); uiCtx.stroke();
+                } else {
+                    let grad = uiCtx.createRadialGradient(cx, cy, 1, cx, cy, size);
+                    if (p.team === 'home') { grad.addColorStop(0, '#ff4d4d'); grad.addColorStop(1, '#cc0000'); }
+                    else { grad.addColorStop(0, '#3a86ff'); grad.addColorStop(1, '#0056e0'); }
+
+                    uiCtx.fillStyle = grad; uiCtx.strokeStyle = 'rgba(255,255,255,0.95)'; uiCtx.lineWidth = 2.5;
+                    uiCtx.beginPath(); uiCtx.arc(cx, cy, size, 0, Math.PI*2); uiCtx.fill(); uiCtx.stroke();
+
+                    uiCtx.fillStyle = '#ffffff'; uiCtx.font = 'bold 11px system-ui'; uiCtx.textAlign = 'center'; uiCtx.textBaseline = 'middle';
+                    uiCtx.fillText(p.num, cx, cy);
+
+                    uiCtx.fillStyle = '#94a3b8'; uiCtx.font = 'bold 9px system-ui';
+                    uiCtx.fillText(p.name, cx, cy + size + 11);
+                }
+                uiCtx.restore();
+            });
+
+            if (activeLine) renderSingleLine(uiCtx, activeLine);
+        }
+
+        function renderSingleLine(ctx, d) {
+            ctx.save(); ctx.strokeStyle = '#f59e0b'; ctx.fillStyle = '#f59e0b'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+            if (d.type === 'dash') ctx.setLineDash([7, 5]);
+
+            ctx.beginPath(); ctx.moveTo(d.start.x, d.start.y);
+            if (d.type === 'curve' && d.control) ctx.quadraticCurveTo(d.control.x, d.control.y, d.end.x, d.end.y);
+            else ctx.lineTo(d.end.x, d.end.y);
+            ctx.stroke();
+
+            let angle = (d.type === 'curve' && d.control) ? Math.atan2(d.end.y - d.control.y, d.end.x - d.control.x) : Math.atan2(d.end.y - d.start.y, d.end.x - d.start.x);
+            ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(d.end.x, d.end.y);
+            ctx.lineTo(d.end.x - 12 * Math.cos(angle - Math.PI/6), d.end.y - 12 * Math.sin(angle - Math.PI/6));
+            ctx.lineTo(d.end.x - 12 * Math.cos(angle + Math.PI/6), d.end.y - 12 * Math.sin(angle + Math.PI/6));
+            ctx.closePath(); ctx.fill(); ctx.restore();
+        }
+
+        // --- 触控监听 ---
+        uiCanvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                touchStartDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                lastTouchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                lastTouchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                return;
+            }
+
+            const r = uiCanvas.getBoundingClientRect();
+            const touchX = e.touches[0].clientX - r.left; const touchY = e.touches[0].clientY - r.top;
+            
+            let target = null; const w = uiCanvas.width; const h = uiCanvas.height;
+            players.forEach(p => { if(Math.hypot(p.x * w - touchX, p.y * h - touchY) < 26) target = p; });
+
+            if (toolMode === 'select') {
+                if (target) {
+                    movingPlayer = target; activePlayer = target; popEditor(target);
+                } else {
+                    activePlayer = null; hideEditor();
+                }
+            } else {
+                activeLine = { type: toolMode, start: {x:touchX, y:touchY}, end: {x:touchX, y:touchY} };
+            }
+            updateUICanvas();
+        }, {passive: true});
+
+        uiCanvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+                currentScale = Math.max(0.7, Math.min(2.5, currentScale * (dist / touchStartDist)));
+                offsetX += (midX - lastTouchX); offsetY += (midY - lastTouchY);
+                applyPitchTransform();
+
+                touchStartDist = dist; lastTouchX = midX; lastTouchY = midY;
+                return;
+            }
+
+            if(e.cancelable) e.preventDefault();
+            const r = uiCanvas.getBoundingClientRect();
+            const touchX = e.touches[0].clientX - r.left; const touchY = e.touches[0].clientY - r.top;
+            const w = uiCanvas.width; const h = uiCanvas.height;
+
+            if (movingPlayer) {
+                movingPlayer.x = Math.max(0.02, Math.min(0.98, touchX / w));
+                movingPlayer.y = Math.max(0.03, Math.min(0.97, touchY / h));
+                updateUICanvas();
+                if(activePlayer === movingPlayer) popEditor(movingPlayer);
+            } else if (activeLine) {
+                if (activeLine.type === 'curve') {
+                    activeLine.end = {x:touchX, y:touchY};
+                    activeLine.control = { x: (activeLine.start.x + touchX)/2 + (touchY - activeLine.start.y)*0.25, y: (activeLine.start.y + touchY)/2 - (touchX - activeLine.start.x)*0.25 };
+                } else {
+                    activeLine.end = {x:touchX, y:touchY};
+                }
+                updateUICanvas();
+            }
+        }, {passive: false});
+
+        uiCanvas.addEventListener('touchend', () => {
+            if (activeLine && Math.hypot(activeLine.end.x - activeLine.start.x, activeLine.end.y - activeLine.start.y) > 10) {
+                tacticalLines.push(activeLine); updateLinesCanvas();
+            }
+            movingPlayer = null; activeLine = null; updateUICanvas();
+        });
+
+        function applyPitchTransform() { pitchTransformWrapper.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${currentScale})`; }
+
+        // --- 赛制切换配置 ---
+        function switchSystem(systemType, formationCode) {
+            activeSystem = systemType;
+            
+            if (systemType === 6) {
+                pitchTransformWrapper.style.aspectRatio = "42 / 22"; 
+                document.getElementById('pitch-tag').innerText = "FIFA 标准 6 人场";
+            } else {
+                pitchTransformWrapper.style.aspectRatio = "105 / 68";
+                document.getElementById('pitch-tag').innerText = `国际标准 ${systemType} 人场`;
+            }
+
+            const btnKey = `${systemType}_${formationCode}`;
+            document.querySelectorAll('.system-btn').forEach(btn => btn.classList.remove('active-tool'));
+            event.target.classList.add('active-tool');
+
+            const home = systemFormations[btnKey]; const away = buildAwayMirror(home);
+            players = [...home, ...away, { id:888, type:'ball', x:0.5, y:0.5 }];
+            
+            setTimeout(() => { initSizeConfig(); }, 50);
+        }
+
+        function changeMTool(tool) {
+            toolMode = tool;
+            ['select', 'line', 'dash', 'curve'].forEach(t => document.getElementById(`m-tool-${t}`).classList.remove('active-tool'));
+            document.getElementById(`m-tool-${tool}`).classList.add('active-tool');
+        }
+
+        function addExtra(team) {
+            const id = Date.now();
+            if(team === 'ball') players.push({ id, type:'ball', x:0.5, y:0.5 });
+            else players.push({ id, num:'+', name:'替补', team, x:0.5, y:0.15 });
+            updateUICanvas();
+        }
+
+        // 其他辅助函数
+        function toggleGrid() { isGridVisible = !isGridVisible; document.getElementById('btn-grid').classList.toggle('bg-emerald-600', isGridVisible); drawDynamicPitch(); }
+        function changeView() {
+            viewType = viewType === 'full' ? 'half' : 'full';
+            document.getElementById('btn-view').innerText = viewType === 'full' ? '全场' : '半场';
+            if (viewType === 'half') { pitchTransformWrapper.style.clipPath = 'inset(0 50% 0 0)'; currentScale = 1.4; offsetX = uiCanvas.width * 0.22; } 
+            else { pitchTransformWrapper.style.clipPath = 'none'; currentScale = 1; offsetX = 0; offsetY = 0; }
+            applyPitchTransform();
+        }
+        function clearCanvasLines() { tacticalLines = []; updateLinesCanvas(); }
+        function popEditor(p) { if(p.type === 'ball') return; document.getElementById('m-editor').classList.remove('hidden'); document.getElementById('m-name').value = p.name; document.getElementById('m-num').value = p.num; }
+        function hideEditor() { document.getElementById('m-editor').classList.add('hidden'); }
+        function syncMobilePlayer() { if(activePlayer) { activePlayer.name = document.getElementById('m-name').value; activePlayer.num = document.getElementById('m-num').value; updateUICanvas(); } }
+        function deletePlayer() { if(activePlayer) { players = players.filter(p => p !== activePlayer); activePlayer = null; hideEditor(); updateUICanvas(); } }
+        function duplicatePlayer() { if(activePlayer) { players.push({ id:Date.now(), num:activePlayer.num, name:activePlayer.name+'_克隆', team:activePlayer.team, x:0.5, y:0.5 }); updateUICanvas(); } }
+        function exportTactics() { const expCanvas = document.createElement('canvas'); expCanvas.width = bgCanvas.width; expCanvas.height = bgCanvas.height; const expCtx = expCanvas.getContext('2d'); expCtx.drawImage(bgCanvas,0,0); expCtx.drawImage(drawCanvas,0,0); expCtx.drawImage(uiCanvas,0,0); const link = document.createElement('a'); link.download = `坦途战术导出_${Date.now()}.png`; link.href = expCanvas.toDataURL('image/png'); link.click(); }
+        function initSizeConfig() { const w = pitchTransformWrapper.clientWidth; const h = pitchTransformWrapper.clientHeight; [bgCanvas, drawCanvas, uiCanvas].forEach(c => { c.width = w; c.height = h; }); drawDynamicPitch(); updateLinesCanvas(); updateUICanvas(); }
+
+        window.addEventListener('resize', initSizeConfig);
+        const initialHome = systemFormations["11_442"];
+        players = [...initialHome, ...buildAwayMirror(initialHome), { id:888, type:'ball', x:0.5, y:0.5 }];
+        setTimeout(initSizeConfig, 100);
+    </script>
+</body>
+</html>
