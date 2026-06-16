@@ -2,442 +2,1185 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>坦途多赛制高级战术看板</title>
-    <!-- 引入 Tailwind CSS 4.0 与 Google SF Pro 级字体、图标库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TANTU FOOTBALL - 智能平衡分队系统</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
     <style>
-        * { box-sizing: border-box; -webkit-user-select: none; user-select: none; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #080d1a; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: none; }
-        
-        /* 拟物高级渐变球场视口 */
-        .stage-area { height: calc(100vh - 190px); width: 100%; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at center, #0f1c3f 0%, #070b19 100%); }
-        
-        /* 动态场形包装 */
-        .pitch-box {
-            width: 94vw;
-            aspect-ratio: 105 / 68;
-            position: relative;
-            transform-origin: center center;
-            transition: aspect-ratio 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        :root {
+            --bg-main: #0B0F19;
+            --bg-card: #161B26;
+            --bg-card-active: #1F293D;
+            --accent-gold: #D4AF37;
+            --accent-gold-hover: #F3E5AB;
+            --text-title: #FFFFFF;
+            --text-main: #E2E8F0;
+            --text-muted: #64748B;
+            --border-color: #232D42;
         }
 
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border-radius: 12px; }
-        #bgCanvas { z-index: 1; border: 2px solid rgba(255, 255, 255, 0.15); box-shadow: 0 20px 50px rgba(0,0,0,0.6); }
-        #drawCanvas { z-index: 5; pointer-events: none; }
-        #uiCanvas { z-index: 10; touch-action: none; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-        /* 高级毛玻璃微光 DOCK 效果 */
-        .glass-dock { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid rgba(255, 255, 255, 0.08); }
-        .glass-pill { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            padding-bottom: 40px;
+            user-select: none;
+            line-height: 1.5;
+        }
 
-        /* 选中激活状态的极光绿 */
-        .active-tool { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; color: #ffffff !important; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); border-color: transparent !important; }
-        .scroll-x::-webkit-scrollbar { display: none; }
+        .header {
+            background: linear-gradient(180deg, #111827 0%, #0B0F19 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 24px 16px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: var(--text-title);
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .header p {
+            color: var(--accent-gold);
+            font-size: 11px;
+            letter-spacing: 4px;
+            margin-top: 4px;
+            text-transform: uppercase;
+            font-weight: 500;
+        }
+
+        .container {
+            padding: 16px;
+            max-width: 540px;
+            margin: 0 auto;
+        }
+
+        .tabs {
+            display: flex;
+            background: #111622;
+            border-radius: 8px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tab-btn.active {
+            background: var(--bg-card);
+            color: var(--accent-gold);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 16px;
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #D4AF37 0%, #AA7C11 100%);
+            color: #000000;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+        }
+
+        .form-group {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .form-group h3 {
+            font-size: 16px;
+            color: var(--text-title);
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .form-item {
+            margin-bottom: 16px;
+        }
+
+        .form-item label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--bg-main);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 15px;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--accent-gold);
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+        }
+
+        .pos-checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .pos-btn {
+            background: var(--bg-main);
+            border: 1px solid var(--border-color);
+            padding: 12px 0;
+            text-align: center;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .pos-btn.selected {
+            background: rgba(212, 175, 55, 0.1);
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+        }
+
+        .stat-bar {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-bar .count {
+            color: var(--accent-gold);
+            font-size: 18px;
+            font-weight: 700;
+            font-family: system-ui, sans-serif;
+        }
+
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .player-card {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--border-color);
+            transition: all 0.2s ease;
+        }
+
+        .match-row-clickable {
+            cursor: pointer;
+        }
+
+        .player-card.registered {
+            background: var(--bg-card-active);
+            border-color: rgba(212, 175, 55, 0.3);
+            box-shadow: inset 0 0 12px rgba(212, 175, 55, 0.03);
+        }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .player-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-title);
+        }
+
+        .gk-tag {
+            font-size: 14px;
+        }
+
+        .player-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .tag {
+            background: var(--bg-main);
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .player-card.registered .tag-level {
+            color: var(--accent-gold);
+            background: rgba(212, 175, 55, 0.08);
+        }
+
+        .right-action-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .gk-switch-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px 8px;
+            background: var(--bg-main);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        .gk-switch-label input {
+            cursor: pointer;
+        }
+        .player-card.registered .gk-switch-label-active {
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+            background: rgba(212, 175, 55, 0.05);
+        }
+
+        .radio-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .player-card.registered .radio-icon {
+            border-color: var(--accent-gold);
+            background: var(--accent-gold);
+        }
+
+        .player-card.registered .radio-icon::after {
+            content: "";
+            width: 6px;
+            height: 6px;
+            background: #000000;
+            border-radius: 50%;
+        }
+
+        .delete-btn {
+            background: rgba(255, 77, 79, 0.1);
+            color: #FF4D4F;
+            border: 1px solid rgba(255, 77, 79, 0.2);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .board-wrapper {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .board-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-top: 12px;
+        }
+        .team-box {
+            background: #0B0F19;
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-top: 4px solid var(--border-color);
+            transition: border-color 0.2s;
+        }
+        .team-meta-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .team-title-input-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .team-color-picker {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            background: transparent;
+        }
+        .team-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+        .team-color-picker::-webkit-color-swatch { border: 1px solid var(--border-color); border-radius: 50%; }
+        
+        .team-name-input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px dashed var(--text-muted);
+            color: var(--text-title);
+            font-size: 15px;
+            font-weight: 700;
+            width: 110px;
+            outline: none;
+            padding: 2px 0;
+        }
+        .team-name-input:focus {
+            border-bottom-color: var(--accent-gold);
+        }
+        .team-power-badge {
+            font-size: 11px;
+            background: var(--bg-card);
+            padding: 3px 8px;
+            border-radius: 4px;
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+        .team-power-badge span {
+            color: var(--accent-gold);
+            font-weight: 600;
+        }
+        .drag-list-container {
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(0,0,0,0.15);
+            padding: 6px;
+            border-radius: 6px;
+        }
+        .draggable-player-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 10px 12px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: grab;
+            transition: transform 0.1s;
+        }
+        .draggable-player-item:active { cursor: grabbing; }
+        .draggable-player-item.selected-for-swap {
+            border-color: var(--accent-gold);
+            background: var(--bg-card-active);
+            box-shadow: 0 0 8px rgba(212, 175, 55, 0.2);
+        }
+        .drag-ghost-class {
+            opacity: 0.4;
+            background: var(--accent-gold) !important;
+        }
+        .board-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 14px;
+        }
+        .btn-sm {
+            padding: 10px;
+            font-size: 13px;
+            margin-bottom: 0;
+        }
+
+        .output-wrapper {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .result-box {
+            color: #FFFFFF;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+            white-space: pre;
+            overflow-x: auto;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            background: #0B0F19;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .section-title {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 16px 0 10px 4px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .search-wrapper {
+            margin-bottom: 14px;
+        }
+        .match-info-form {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 20px;
+        }
+        .match-info-form h3 {
+            font-size: 15px;
+            color: var(--text-title);
+            margin-bottom: 14px;
+            border-left: 3px solid var(--accent-gold);
+            padding-left: 8px;
+        }
+        .match-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        .match-form-grid .full-row {
+            grid-column: span 2;
+        }
     </style>
 </head>
-<body class="flex flex-col justify-between h-full text-slate-200">
+<body>
 
-    <!-- 1. 顶置控制栏 -->
-    <header class="h-[55px] bg-slate-950/80 border-b border-slate-900/60 px-4 flex justify-between items-center z-40 backdrop-blur-md">
-        <div class="flex items-center space-x-2.5">
-            <div class="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center font-black text-slate-950 shadow-inner text-sm">T</div>
-            <div>
-                <span class="text-xs font-bold tracking-wide block text-white">坦途战术大师</span>
-                <span class="text-[9px] text-slate-400 block -mt-0.5" id="pitch-tag">FIFA 标准 11 人场</span>
+    <div class="header">
+        <h1>TANTU FOOTBALL</h1>
+        <p>坦途足球智能平衡分队系统</p>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-match')">赛事分队</button>
+            <button class="tab-btn" onclick="switchTab('tab-players')">球员数据中心</button>
+        </div>
+
+        <div id="tab-match" class="tab-content active">
+            <div class="match-info-form">
+                <h3>📋 赛事基础信息配置</h3>
+                <div class="match-form-grid">
+                    <div class="form-item">
+                        <label>比赛时间</label>
+                        <input type="text" id="m-time" class="form-control" placeholder="周几 20:00-22:00">
+                    </div>
+                    <div class="form-item">
+                        <label>比赛场地</label>
+                        <input type="text" id="m-venue" class="form-control" placeholder="球场及场号">
+                    </div>
+                    <div class="form-item">
+                        <label>后勤物资</label>
+                        <input type="text" id="m-supplies" class="form-control" placeholder="饮用水、分队服等">
+                    </div>
+                    <div class="form-item">
+                        <label>裁判安排</label>
+                        <input type="text" id="m-referee" class="form-control" placeholder="主裁判/编外监督">
+                    </div>
+                    <div class="form-item">
+                        <label>赛事直播</label>
+                        <input type="text" id="m-live" class="form-control" placeholder="推流或相册链接/无">
+                    </div>
+                    <div class="form-item">
+                        <label>赛制节数</label>
+                        <input type="text" id="m-periods" class="form-control" placeholder="如: 3节(每节30分钟)">
+                    </div>
+                    <div class="form-item full-row" style="margin-bottom: 0;">
+                        <label>比赛备注</label>
+                        <input type="text" id="m-remark" class="form-control" placeholder="天气预警/球衣颜色冲突协调说明">
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="flex items-center space-x-1.5">
-            <button onclick="toggleGrid()" id="btn-grid" class="p-1.5 text-xs text-slate-300 bg-slate-900 border border-slate-800 rounded-lg px-2.5 transition active:scale-95"><i class="fas fa-th-large mr-1 opacity-70"></i>网格</button>
-            <button onclick="changeView()" id="btn-view" class="p-1.5 text-xs text-slate-300 bg-slate-900 border border-slate-800 rounded-lg px-2.5 transition active:scale-95">全场</button>
-            <button onclick="exportTactics()" class="p-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-3 shadow-lg shadow-indigo-600/20 transition active:scale-95"><i class="fas fa-share-square mr-1"></i>导出图片</button>
-        </div>
-    </header>
 
-    <!-- 2. 核心动态画布视口 -->
-    <main class="stage-area" id="viewBox">
-        <div id="pitchTransformWrapper" class="pitch-box">
-            <canvas id="bgCanvas"></canvas>
-            <canvas id="drawCanvas"></canvas>
-            <canvas id="uiCanvas"></canvas>
-        </div>
-    </main>
-
-    <!-- 3. 数字化底层综合控制舱 -->
-    <section class="glass-dock pb-safe z-40">
-        
-        <!-- 悬浮微调舱 -->
-        <div id="m-editor" class="h-[55px] bg-slate-950/90 px-4 border-b border-slate-900 flex items-center justify-between hidden animate-fade-in">
-            <div class="flex items-center space-x-2 text-xs">
-                <span class="text-amber-400 font-bold flex items-center"><i class="fas fa-marker mr-1"></i> 编辑:</span>
-                <input type="text" id="m-name" oninput="syncMobilePlayer()" class="w-16 bg-slate-900 border border-slate-800 text-center rounded-md px-1.5 py-0.5 text-white focus:border-emerald-500 focus:outline-none">
-                <input type="number" id="m-num" oninput="syncMobilePlayer()" class="w-11 bg-slate-900 border border-slate-800 text-center rounded-md px-1 py-0.5 text-white focus:border-emerald-500 focus:outline-none">
+            <div class="stat-bar">
+                <div>已签到 <span id="reg-count" class="count">0</span> 人</div>
+                <div id="gk-count" style="color: var(--text-muted); font-weight: 500;">专属门将: 0</div>
             </div>
-            <div class="flex space-x-1.5">
-                <button onclick="duplicatePlayer()" class="bg-slate-900 border border-slate-800 text-slate-300 text-[11px] px-2.5 py-1 rounded-md active:bg-slate-800"><i class="far fa-copy mr-1"></i>克隆</button>
-                <button onclick="deletePlayer()" class="bg-rose-950/60 text-rose-400 text-[11px] px-2.5 py-1 rounded-md border border-rose-900/40 active:bg-rose-900"><i class="fas fa-trash-alt mr-1"></i>删除</button>
+
+            <button class="btn btn-gold" onclick="processSmartBalanceDivide()">⚡ 开始智能战位平衡分队</button>
+            
+            <div id="interactive-board-section" class="board-wrapper" style="display: none;">
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; font-weight: 600;">🔄 战局编排微调（支持拖拽或选择互调）</div>
+                
+                <div class="board-grid">
+                    <div class="team-box" id="box-teamA">
+                        <div class="team-meta-row">
+                            <div class="team-title-input-group">
+                                <input type="color" id="picker-teamA" class="team-color-picker" value="#FF4D4F" onchange="syncTeamStyle('A')">
+                                <input type="text" id="input-nameTeamA" class="team-name-input" value="红队">
+                            </div>
+                            <div class="team-power-badge">人数:<span id="badge-countA">0</span> | 战力:<span id="badge-powerA">0</span></div>
+                        </div>
+                        <div id="list-teamA" class="drag-list-container"></div>
+                    </div>
+
+                    <div class="team-box" id="box-teamB">
+                        <div class="team-meta-row">
+                            <div class="team-title-input-group">
+                                <input type="color" id="picker-teamB" class="team-color-picker" value="#1890FF" onchange="syncTeamStyle('B')">
+                                <input type="text" id="input-nameTeamB" class="team-name-input" value="蓝队">
+                            </div>
+                            <div class="team-power-badge">人数:<span id="badge-countB">0</span> | 战力:<span id="badge-powerB">0</span></div>
+                        </div>
+                        <div id="list-teamB" class="drag-list-container"></div>
+                    </div>
+                </div>
+
+                <div class="board-actions">
+                    <button class="btn btn-outline btn-sm" onclick="swapSelectedPlayers()">🔄 选中球员互调</button>
+                    <button class="btn btn-gold btn-sm" onclick="generateFinalExportText()">📝 确认并生成文本</button>
+                </div>
             </div>
+
+            <div id="output-section" style="display: none;" class="output-wrapper">
+                <div class="result-box" id="result-text"></div>
+                <button class="btn btn-gold" style="margin-bottom:0;" onclick="copyResult()">📋 复制最终名单发至微信</button>
+            </div>
+
+            <div class="section-title">切客签到名单 (点击卡片签到 | 可选专属门将)</div>
+            
+            <div class="search-wrapper">
+                <input type="text" id="player-search-input" class="form-control" placeholder="🔍 输入球员姓名或档位(如: 2档)进行快速检索..." oninput="render()">
+            </div>
+
+            <div id="match-player-list" class="player-list"></div>
         </div>
 
-        <!-- 多赛制阵型舱 (已将5人制全面升级为6人制) -->
-        <div class="flex overflow-x-auto scroll-x px-3 py-2 space-x-2 bg-slate-950/30 border-b border-slate-900/60 items-center">
-            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider whitespace-nowrap bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800">赛制阵型</span>
-            
-            <!-- 6人制 -->
-            <button onclick="switchSystem(6, '221')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">六人制 2-2-1</button>
-            <button onclick="switchSystem(6, '311')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">六人制 3-1-1</button>
-            
-            <!-- 7人制 -->
-            <button onclick="switchSystem(7, '231')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">七人制 2-3-1</button>
-            <button onclick="switchSystem(7, '321')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">七人制 3-2-1</button>
-            
-            <!-- 8人制 -->
-            <button onclick="switchSystem(8, '331')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">八人制 3-3-1</button>
-            <button onclick="switchSystem(8, '421')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">八人制 4-2-1</button>
-            
-            <!-- 11人制 -->
-            <button onclick="switchSystem(11, '442')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap active-tool">十一人 4-4-2</button>
-            <button onclick="switchSystem(11, '433')" class="system-btn glass-pill text-slate-300 text-xs px-3 py-1 rounded-full whitespace-nowrap">十一人 4-3-3</button>
+        <div id="tab-players" class="tab-content">
+            <div class="form-group">
+                <h3>录入新转会球员</h3>
+                <div class="form-item">
+                    <label>姓名</label>
+                    <input type="text" id="p-name" class="form-control" placeholder="输入球员姓名">
+                </div>
+                <div class="form-item">
+                    <label>竞技核心档位</label>
+                    <select id="p-level" class="form-control">
+                        <option value="1">1 档 (核心/统治级)</option>
+                        <option value="2" selected>2 档 (主力/优秀)</option>
+                        <option value="3">3 档 (中坚/常规)</option>
+                        <option value="4">4 档 (轮换/薄弱)</option>
+                        <option value="5">5 档 (新手/娱乐)</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <label>体能储备</label>
+                    <select id="p-stamina" class="form-control">
+                        <option value="5">好 (全场飞奔)</option>
+                        <option value="4">中上 (高规跑动)</option>
+                        <option value="3" selected>中 (稳定战力)</option>
+                        <option value="2">中下 (局部隐身)</option>
+                        <option value="1">差 (体能瓶颈)</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <label>瞬时速度</label>
+                    <select id="p-speed" class="form-control">
+                        <option value="5">快 (强力突击)</option>
+                        <option value="4">中上 (长途策应)</option>
+                        <option value="3" selected>中 (常规推进)</option>
+                        <option value="2">中下 (落位防守)</option>
+                        <option value="1">差 (速度劣势)</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <label>球场常驻战位 (可多选)</label>
+                    <div class="pos-checkbox-group">
+                        <div class="pos-btn" data-pos="GK" onclick="togglePosBtn(this)">GK</div>
+                        <div class="pos-btn" data-pos="DF" onclick="togglePosBtn(this)">DF</div>
+                        <div class="pos-btn" data-pos="MF" onclick="togglePosBtn(this)">MF</div>
+                        <div class="pos-btn" data-pos="FW" onclick="togglePosBtn(this)">FW</div>
+                    </div>
+                </div>
+                <button class="btn btn-gold" style="margin-bottom:0; margin-top:8px;" onclick="addPlayer()">💾 激活并保存球员</button>
+            </div>
 
-            <div class="w-px bg-slate-800 self-stretch mx-1"></div>
-            <button onclick="addExtra('home')" class="bg-red-950/40 text-red-400 text-xs px-2.5 py-1 rounded-full border border-red-900/40 whitespace-nowrap">+ 红员</button>
-            <button onclick="addExtra('away')" class="bg-blue-950/40 text-blue-400 text-xs px-2.5 py-1 rounded-full border border-blue-900/40 whitespace-nowrap">+ 蓝员</button>
-            <button onclick="addExtra('ball')" class="bg-white text-slate-950 text-xs px-3 py-1 rounded-full font-bold whitespace-nowrap shadow-md">⚽ 加球</button>
+            <div class="section-title">大名单大数据库</div>
+            <div id="full-player-list" class="player-list"></div>
         </div>
-
-        <!-- 战术画笔面板 -->
-        <div class="h-[65px] grid grid-cols-5 items-center justify-items-center text-center px-2">
-            <button onclick="changeMTool('select')" id="m-tool-select" class="w-[92%] h-[46px] rounded-xl text-slate-400 bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center transition active:scale-95 active-tool">
-                <i class="fas fa-compress-arrows-alt text-sm"></i><span class="text-[9px] mt-0.5 font-semibold">选择挪动</span>
-            </button>
-            <button onclick="changeMTool('line')" id="m-tool-line" class="w-[92%] h-[46px] rounded-xl text-slate-400 bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center transition active:scale-95">
-                <i class="fas fa-long-arrow-alt-right text-base"></i><span class="text-[9px] mt-0.5 font-semibold">跑位实线</span>
-            </button>
-            <button onclick="changeMTool('dash')" id="m-tool-dash" class="w-[92%] h-[46px] rounded-xl text-slate-400 bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center transition active:scale-95">
-                <i class="fas fa-ellipsis-h text-sm"></i><span class="text-[9px] mt-0.5 font-semibold">传球虚线</span>
-            </button>
-            <button onclick="changeMTool('curve')" id="m-tool-curve" class="w-[92%] h-[46px] rounded-xl text-slate-400 bg-slate-900/50 border border-slate-800 flex flex-col items-center justify-center transition active:scale-95">
-                <i class="fas fa-bezier-curve text-sm"></i><span class="text-[9px] mt-0.5 font-semibold">盘带弧线</span>
-            </button>
-            <button onclick="clearCanvasLines()" class="w-[92%] h-[46px] rounded-xl text-rose-400 bg-rose-950/20 border border-rose-900/30 flex flex-col items-center justify-center transition active:bg-rose-900/30">
-                <i class="fas fa-trash-alt text-sm"></i><span class="text-[9px] mt-0.5 font-semibold">清空轨迹</span>
-            </button>
-        </div>
-    </section>
+    </div>
 
     <script>
-        // --- 核心配置 ---
-        const bgCanvas = document.getElementById('bgCanvas');
-        const drawCanvas = document.getElementById('drawCanvas');
-        const uiCanvas = document.getElementById('uiCanvas');
-        const bgCtx = bgCanvas.getContext('2d');
-        const drawCtx = drawCanvas.getContext('2d');
-        const uiCtx = uiCanvas.getContext('2d');
-        const pitchTransformWrapper = document.getElementById('pitchTransformWrapper');
+        const defaultPlayers = [
+            { id: "1", name: "上乾", level: 2, stamina: 3, speed: 4, positions: ["DF", "MF"], registered: false, matchGK: false },
+            { id: "2", name: "虎哥", level: 3, stamina: 1, speed: 1, positions: ["MF"], registered: false, matchGK: false },
+            { id: "3", name: "亚扁", level: 2, stamina: 3, speed: 3, positions: ["DF"], registered: false, matchGK: false },
+            { id: "4", name: "华杰", level: 2, stamina: 3, speed: 4, positions: ["FW"], registered: false, matchGK: false },
+            { id: "5", name: "汉辉", level: 2, stamina: 3, speed: 3, positions: ["DF", "MF"], registered: false, matchGK: false },
+            { id: "6", name: "华基", level: 2, stamina: 3, speed: 3, positions: ["MF", "FW"], registered: false, matchGK: false },
+            { id: "7", name: "春浴", level: 3, stamina: 5, speed: 4, positions: ["FW"], registered: false, matchGK: false },
+            { id: "8", name: "明总", level: 4, stamina: 1, speed: 1, positions: ["MF", "FW"], registered: false, matchGK: false },
+            { id: "9", name: "大尚", level: 2, stamina: 1, speed: 1, positions: ["GK", "FW"], registered: false, matchGK: false },
+            { id: "10", name: "华辉", level: 2, stamina: 5, speed: 3, positions: ["DF", "MF", "FW"], registered: false, matchGK: false },
+            { id: "11", name: "扁头", level: 2, stamina: 5, speed: 5, positions: ["DF"], registered: false, matchGK: false },
+            { id: "12", name: "飞鱼", level: 3, stamina: 1, speed: 2, positions: ["DF"], registered: false, matchGK: false },
+            { id: "13", name: "作伟", level: 2, stamina: 3, speed: 4, positions: ["DF", "MF"], registered: false, matchGK: false },
+            { id: "14", name: "烂勇", level: 3, stamina: 5, speed: 3, positions: ["GK", "DF"], registered: false, matchGK: false },
+            { id: "15", name: "亚许", level: 2, stamina: 1, speed: 3, positions: ["FW"], registered: false, matchGK: false },
+            { id: "16", name: "二九", level: 2, stamina: 3, speed: 1, positions: ["DF"], registered: false, matchGK: false },
+            { id: "17", name: "荣杰", level: 2, stamina: 3, speed: 3, positions: ["MF"], registered: false, matchGK: false },
+            { id: "18", name: "鸡宇", level: 2, stamina: 5, speed: 3, positions: ["DF", "MF", "FW"], registered: false, matchGK: false },
+            { id: "19", name: "文祥庄", level: 3, stamina: 3, speed: 1, positions: ["DF"], registered: false, matchGK: false },
+            { id: "20", name: "润芳", level: 5, stamina: 1, speed: 1, positions: ["GK"], registered: false, matchGK: false },
+            { id: "21", name: "尚兴", level: 2, stamina: 3, speed: 3, positions: ["DF", "FW"], registered: false, matchGK: false },
+            { id: "22", name: "仲满", level: 2, stamina: 3, speed: 3, positions: ["MF"], registered: false, matchGK: false },
+            { id: "23", name: "金头", level: 3, stamina: 5, speed: 3, positions: ["DF"], registered: false, matchGK: false },
+            { id: "24", name: "亚伟", level: 4, stamina: 3, speed: 2, positions: ["DF"], registered: false, matchGK: false },
+            { id: "25", name: "BK", level: 2, stamina: 5, speed: 4, positions: ["DF", "MF", "FW"], registered: false, matchGK: false },
+            { id: "26", name: "上海", level: 5, stamina: 1, speed: 1, positions: ["DF"], registered: false, matchGK: false },
+            { id: "27", name: "路通", level: 3, stamina: 5, speed: 3, positions: ["DF", "MF", "FW"], registered: false, matchGK: false },
+            { id: "28", name: "二龙", level: 2, stamina: 3, speed: 2, positions: ["MF", "FW"], registered: false, matchGK: false },
+            { id: "29", name: "国振", level: 3, stamina: 5, speed: 3, positions: ["DF", "FW"], registered: false, matchGK: false },
+            { id: "30", name: "老池", level: 3, stamina: 3, speed: 3, positions: ["DF", "FW"], registered: false, matchGK: false },
+            { id: "31", name: "黎伯", level: 3, stamina: 1, speed: 1, positions: ["MF", "FW"], registered: false, matchGK: false },
+            { id: "32", name: "亚低", level: 3, stamina: 3, speed: 3, positions: ["DF", "FW"], registered: false, matchGK: false },
+            { id: "33", name: "春", level: 3, stamina: 5, speed: 4, positions: ["FW"], registered: false, matchGK: false }
+        ];
 
-        let toolMode = 'select';
-        let isGridVisible = false;
-        let viewType = 'full';
-        let activeSystem = 11;
+        let players = [];
+        let swapSelection = [];
 
-        let currentScale = 1; let offsetX = 0; let offsetY = 0;
-        let touchStartDist = 0; let lastTouchX = 0; let lastTouchY = 0;
+        let currentTeamAData = [];
+        let currentTeamBData = [];
 
-        let players = []; let tacticalLines = [];
-        let activeLine = null; let activePlayer = null; let movingPlayer = null;
-
-        // --- 多赛制阵型坐标中心 (已变更为6人制) ---
-        const systemFormations = {
-            // 6人制 2-2-1
-            "6_221": [
-                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
-                { id:2, num:3, name:'DF', team:'home', x:0.25, y:0.3 }, { id:3, num:4, name:'DF', team:'home', x:0.25, y:0.7 },
-                { id:4, num:8, name:'MF', team:'home', x:0.48, y:0.3 }, { id:5, num:10, name:'MF', team:'home', x:0.48, y:0.7 },
-                { id:6, num:9, name:'FW', team:'home', x:0.73, y:0.5 }
-            ],
-            // 6人制 3-1-1
-            "6_311": [
-                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
-                { id:2, num:2, name:'LD', team:'home', x:0.25, y:0.22 }, { id:3, num:5, name:'CD', team:'home', x:0.22, y:0.5 }, { id:4, num:3, name:'RD', team:'home', x:0.25, y:0.78 },
-                { id:5, num:8, name:'MF', team:'home', x:0.50, y:0.5 },
-                { id:6, num:9, name:'FW', team:'home', x:0.73, y:0.5 }
-            ],
-            // 7人制
-            "7_231": [
-                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
-                { id:2, num:3, name:'CB', team:'home', x:0.24, y:0.30 }, { id:3, num:4, name:'CB', team:'home', x:0.24, y:0.70 },
-                { id:4, num:7, name:'LM', team:'home', x:0.48, y:0.18 }, { id:5, num:8, name:'CM', team:'home', x:0.46, y:0.5 }, { id:6, num:11, name:'RM', team:'home', x:0.48, y:0.82 },
-                { id:7, num:9, name:'FW', team:'home', x:0.72, y:0.5 }
-            ],
-            "7_321": [
-                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
-                { id:2, num:2, name:'LB', team:'home', x:0.24, y:0.20 }, { id:3, num:5, name:'CB', team:'home', x:0.22, y:0.5 }, { id:4, num:3, name:'RB', team:'home', x:0.24, y:0.80 },
-                { id:5, num:8, name:'CM', team:'home', x:0.48, y:0.33 }, { id:6, num:10, name:'CM', team:'home', x:0.48, y:0.67 },
-                { id:7, num:9, name:'FW', team:'home', x:0.72, y:0.5 }
-            ],
-            // 8人制
-            "8_331": [
-                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
-                { id:2, num:2, name:'LB', team:'home', x:0.24, y:0.22 }, { id:3, num:4, name:'CB', team:'home', x:0.21, y:0.5 }, { id:4, num:3, name:'RB', team:'home', x:0.24, y:0.78 },
-                { id:5, num:7, name:'LM', team:'home', x:0.48, y:0.20 }, { id:6, num:8, name:'CM', team:'home', x:0.46, y:0.5 }, { id:7, num:11, name:'RM', team:'home', x:0.48, y:0.80 },
-                { id:8, num:9, name:'ST', team:'home', x:0.72, y:0.5 }
-            ],
-            "8_421": [
-                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
-                { id:2, num:2, name:'LB', team:'home', x:0.24, y:0.15 }, { id:3, num:5, name:'CB', team:'home', x:0.21, y:0.37 }, { id:4, num:6, name:'CB', team:'home', x:0.21, y:0.63 }, { id:5, num:3, name:'RB', team:'home', x:0.24, y:0.85 },
-                { id:6, num:8, name:'CM', team:'home', x:0.48, y:0.33 }, { id:7, num:10, name:'CM', team:'home', x:0.48, y:0.67 },
-                { id:8, num:9, name:'ST', team:'home', x:0.72, y:0.5 }
-            ],
-            // 11人制
-            "11_442": [
-                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
-                { id:2, num:2, name:'RB', team:'home', x:0.24, y:0.16 }, { id:3, num:5, name:'CB', team:'home', x:0.21, y:0.38 }, { id:4, num:6, name:'CB', team:'home', x:0.21, y:0.62 }, { id:5, num:3, name:'LB', team:'home', x:0.24, y:0.84 },
-                { id:6, num:7, name:'RM', team:'home', x:0.46, y:0.16 }, { id:7, num:8, name:'CM', team:'home', x:0.43, y:0.38 }, { id:8, num:10, name:'CM', team:'home', x:0.43, y:0.62 }, { id:9, num:11, name:'LM', team:'home', x:0.46, y:0.84 },
-                { id:10, num:9, name:'ST', team:'home', x:0.68, y:0.33 }, { id:11, num:19, name:'ST', team:'home', x:0.68, y:0.67 }
-            ],
-            "11_433": [
-                { id:1, num:1, name:'GK', team:'home', x:0.07, y:0.5 },
-                { id:2, num:2, name:'RB', team:'home', x:0.24, y:0.15 }, { id:3, num:5, name:'CB', team:'home', x:0.21, y:0.36 }, { id:4, num:6, name:'CB', team:'home', x:0.21, y:0.64 }, { id:5, num:3, name:'LB', team:'home', x:0.24, y:0.85 },
-                { id:6, num:16, name:'DM', team:'home', x:0.38, y:0.5 }, { id:7, num:8, name:'CM', team:'home', x:0.48, y:0.28 }, { id:8, num:21, name:'CM', team:'home', x:0.48, y:0.72 },
-                { id:9, num:7, name:'RW', team:'home', x:0.7, y:0.18 }, { id:10, num:9, name:'ST', team:'home', x:0.73, y:0.5 }, { id:11, num:11, name:'LW', team:'home', x:0.7, y:0.82 }
-            ]
-        };
-
-        function buildAwayMirror(homeArr) {
-            return homeArr.map(p => ({
-                id: p.id + 200, num: p.num, name: p.name, team: 'away', x: 1 - p.x, y: 1 - p.y
-            }));
-        }
-
-        // --- 绘制绿茵场 ---
-        function drawDynamicPitch() {
-            const w = bgCanvas.width; const h = bgCanvas.height;
-            
-            bgCtx.fillStyle = '#113318'; bgCtx.fillRect(0, 0, w, h);
-            bgCtx.fillStyle = '#163d1e';
-            const stripeW = w / 12;
-            for(let i=0; i<12; i+=2) { bgCtx.fillRect(i * stripeW, 0, stripeW, h); }
-
-            bgCtx.strokeStyle = 'rgba(255,255,255,0.85)'; bgCtx.lineWidth = 2.5;
-            bgCtx.strokeRect(0, 0, w, h);
-
-            bgCtx.beginPath(); bgCtx.moveTo(w/2, 0); bgCtx.lineTo(w/2, h); bgCtx.stroke();
-            bgCtx.beginPath(); bgCtx.arc(w/2, h/2, h * (activeSystem === 6 ? 0.15 : 0.13), 0, Math.PI * 2); bgCtx.stroke();
-            bgCtx.fillStyle = '#ffffff'; bgCtx.beginPath(); bgCtx.arc(w/2, h/2, 3.5, 0, Math.PI * 2); bgCtx.fill();
-
-            // 6人制采用半紧凑防区线条，7/8/11人制采用传统大禁区布局
-            if (activeSystem === 6) {
-                const r6 = h * 0.3;
-                bgCtx.beginPath(); bgCtx.arc(0, h/2, r6, -0.5 * Math.PI, 0.5 * Math.PI); bgCtx.stroke();
-                bgCtx.beginPath(); bgCtx.arc(w, h/2, r6, 0.5 * Math.PI, 1.5 * Math.PI); bgCtx.stroke();
+        window.onload = function() {
+            const localData = localStorage.getItem('tantu_football_players');
+            if (localData) {
+                players = JSON.parse(localData);
+                players.forEach(p => { if(p.matchGK === undefined) p.matchGK = false; });
             } else {
-                let boxW = w * 0.157; let boxH = h * 0.60; let smallW = w * 0.052; let smallH = h * 0.264;
-                if(activeSystem === 7 || activeSystem === 8) { boxW = w * 0.14; boxH = h * 0.55; }
-
-                bgCtx.strokeRect(0, (h - boxH)/2, boxW, boxH); bgCtx.strokeRect(0, (h - smallH)/2, smallW, smallH);
-                bgCtx.beginPath(); bgCtx.arc(boxW * 0.7, h / 2, 2.5, 0, Math.PI * 2); bgCtx.fill();
-                
-                bgCtx.strokeRect(w - boxW, (h - boxH)/2, boxW, boxH); bgCtx.strokeRect(w - smallW, (h - smallH)/2, smallW, smallH);
-                bgCtx.beginPath(); bgCtx.arc(w - boxW * 0.7, h / 2, 2.5, 0, Math.PI * 2); bgCtx.fill();
+                players = defaultPlayers;
+                saveToLocal();
             }
+            render();
+            initDragAndDrop();
+            syncTeamStyle('A');
+            syncTeamStyle('B');
+        }
 
-            if (isGridVisible) {
-                bgCtx.save(); bgCtx.strokeStyle = 'rgba(255,255,255,0.06)'; bgCtx.lineWidth = 1;
-                for(let i=1; i<10; i++) {
-                    bgCtx.beginPath(); bgCtx.moveTo((i/10)*w, 0); bgCtx.lineTo((i/10)*w, h); bgCtx.stroke();
-                    bgCtx.beginPath(); bgCtx.moveTo(0, (i/10)*h); bgCtx.lineTo(w, (i/10)*h); bgCtx.stroke();
-                }
-                bgCtx.restore();
+        function saveToLocal() {
+            localStorage.setItem('tantu_football_players', JSON.stringify(players));
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        function togglePosBtn(el) {
+            el.classList.toggle('selected');
+        }
+
+        function calculateScore(p) {
+            return (5 - parseInt(p.level)) * 50 + parseInt(p.stamina) + parseInt(p.speed);
+        }
+
+        function addPlayer() {
+            const name = document.getElementById('p-name').value.trim();
+            const level = parseInt(document.getElementById('p-level').value);
+            const stamina = parseInt(document.getElementById('p-stamina').value);
+            const speed = parseInt(document.getElementById('p-speed').value);
+            const posEls = document.querySelectorAll('.pos-btn.selected');
+            const positions = Array.from(posEls).map(el => el.getAttribute('data-pos'));
+
+            if (!name) { alert('请输入球员姓名！'); return; }
+            if (positions.length === 0) { alert('请至少选择一个位置！'); return; }
+
+            const newPlayer = {
+                id: Date.now().toString(),
+                name, level, stamina, speed, positions,
+                registered: false, matchGK: false
+            };
+
+            players.unshift(newPlayer);
+            saveToLocal();
+            render();
+
+            document.getElementById('p-name').value = '';
+            document.querySelectorAll('.pos-btn').forEach(el => el.classList.remove('selected'));
+            alert(`成功激活并归档球员: ${name}`);
+        }
+
+        function deletePlayer(id, e) {
+            e.stopPropagation();
+            if(confirm('确定将该球员从大名单彻底清除吗？')) {
+                players = players.filter(p => p.id !== id);
+                saveToLocal();
+                render();
             }
         }
 
-        function updateLinesCanvas() {
-            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-            tacticalLines.forEach(line => renderSingleLine(drawCtx, line));
+        function toggleRegister(id) {
+            players = players.map(p => {
+                if(p.id === id) p.registered = !p.registered;
+                return p;
+            });
+            saveToLocal();
+            render();
         }
 
-        function updateUICanvas() {
-            uiCtx.clearRect(0, 0, uiCanvas.width, uiCanvas.height);
-            const w = uiCanvas.width; const h = uiCanvas.height;
-
-            players.forEach(p => {
-                const cx = p.x * w; const cy = p.y * h;
-                const size = p.type === 'ball' ? 9 : 15;
-
-                uiCtx.save();
-                if (p === activePlayer) {
-                    uiCtx.strokeStyle = '#f59e0b'; uiCtx.lineWidth = 4;
-                    uiCtx.beginPath(); uiCtx.arc(cx, cy, size + 4, 0, Math.PI*2); uiCtx.stroke();
+        function toggleMatchGK(id, checkboxEl, event) {
+            event.stopPropagation();
+            players = players.map(p => {
+                if(p.id === id) {
+                    p.matchGK = checkboxEl.checked;
+                    if(checkboxEl.checked) p.registered = true;
                 }
+                return p;
+            });
+            saveToLocal();
+            render();
+        }
 
-                if (p.type === 'ball') {
-                    uiCtx.fillStyle = '#ffffff'; uiCtx.strokeStyle = '#000000'; uiCtx.lineWidth = 2;
-                    uiCtx.beginPath(); uiCtx.arc(cx, cy, size, 0, Math.PI*2); uiCtx.fill(); uiCtx.stroke();
-                } else {
-                    let grad = uiCtx.createRadialGradient(cx, cy, 1, cx, cy, size);
-                    if (p.team === 'home') { grad.addColorStop(0, '#ff4d4d'); grad.addColorStop(1, '#cc0000'); }
-                    else { grad.addColorStop(0, '#3a86ff'); grad.addColorStop(1, '#0056e0'); }
+        function getLevelText(l) { return l + '档'; }
+        function getStaminaText(s) { return ['','差','中下','中','中上','好'][s]; }
+        function getSpeedText(s) { return ['','差','中下','中','中上','快'][s]; }
 
-                    uiCtx.fillStyle = grad; uiCtx.strokeStyle = 'rgba(255,255,255,0.95)'; uiCtx.lineWidth = 2.5;
-                    uiCtx.beginPath(); uiCtx.arc(cx, cy, size, 0, Math.PI*2); uiCtx.fill(); uiCtx.stroke();
+        function render() {
+            const matchContainer = document.getElementById('match-player-list');
+            const fullContainer = document.getElementById('full-player-list');
+            
+            matchContainer.innerHTML = '';
+            fullContainer.innerHTML = '';
 
-                    uiCtx.fillStyle = '#ffffff'; uiCtx.font = 'bold 11px system-ui'; uiCtx.textAlign = 'center'; uiCtx.textBaseline = 'middle';
-                    uiCtx.fillText(p.num, cx, cy);
+            let regCount = 0;
+            let gkCount = 0;
 
-                    uiCtx.fillStyle = '#94a3b8'; uiCtx.font = 'bold 9px system-ui';
-                    uiCtx.fillText(p.name, cx, cy + size + 11);
-                }
-                uiCtx.restore();
+            const searchQuery = document.getElementById('player-search-input').value.trim().toLowerCase();
+
+            const sortedDisplayPlayers = [...players].sort((a, b) => {
+                if (a.level !== b.level) return a.level - b.level;
+                return calculateScore(b) - calculateScore(a);
             });
 
-            if (activeLine) renderSingleLine(uiCtx, activeLine);
+            sortedDisplayPlayers.forEach(p => {
+                const hasGkAttr = p.positions.includes('GK');
+                if (p.registered) regCount++;
+                if (p.matchGK) gkCount++;
+
+                const tagsHtml = `
+                    <span class="tag tag-level">${getLevelText(p.level)}</span>
+                    <span class="tag">体:${getStaminaText(p.stamina)}</span>
+                    <span class="tag">速:${getSpeedText(p.speed)}</span>
+                    <span class="tag" style="color:var(--accent-gold);">${p.positions.join('/')}</span>
+                `;
+
+                const matchTextPool = `${p.name} ${p.level}档 ${p.positions.join('/')}`.toLowerCase();
+                const isMatchSearch = matchTextPool.includes(searchQuery);
+
+                if (isMatchSearch) {
+                    const cardMatch = document.createElement('div');
+                    cardMatch.className = `player-card match-row-clickable ${p.registered ? 'registered' : ''}`;
+                    cardMatch.onclick = () => toggleRegister(p.id);
+                    
+                    cardMatch.innerHTML = `
+                        <div class="player-info">
+                            <div class="player-name-row">
+                                <span class="player-name">${p.name}</span>
+                                ${hasGkAttr ? '<span class="gk-tag">🥅</span>' : ''}
+                                ${p.matchGK ? '<span style="font-size:12px; background:rgba(212,175,55,0.15); color:var(--accent-gold); padding:1px 4px; border-radius:3px; font-weight:600;">本场门将</span>' : ''}
+                            </div>
+                            <div class="player-tags">${tagsHtml}</div>
+                        </div>
+                        <div class="right-action-wrapper">
+                            <label class="gk-switch-label ${p.registered ? 'gk-switch-label-active' : ''}" onclick="event.stopPropagation();">
+                                <input type="checkbox" ${p.matchGK ? 'checked' : ''} onchange="toggleMatchGK('${p.id}', this, event)">
+                                <span>🧤 门将</span>
+                            </label>
+                            <div class="radio-icon"></div>
+                        </div>
+                    `;
+                    matchContainer.appendChild(cardMatch);
+                }
+
+                const cardFull = document.createElement('div');
+                cardFull.className = 'player-card';
+                cardFull.innerHTML = `
+                    <div class="player-info">
+                        <div class="player-name-row">
+                            <span class="player-name">${p.name}</span>
+                            ${hasGkAttr ? '<span class="gk-tag">🥅</span>' : ''}
+                        </div>
+                        <div class="player-tags">${tagsHtml}</div>
+                    </div>
+                    <button class="delete-btn" onclick="deletePlayer('${p.id}', event)">离队</button>
+                `;
+                fullContainer.appendChild(cardFull);
+            });
+
+            document.getElementById('reg-count').innerText = regCount;
+            document.getElementById('gk-count').innerText = `专属门将: ${gkCount}`;
         }
 
-        function renderSingleLine(ctx, d) {
-            ctx.save(); ctx.strokeStyle = '#f59e0b'; ctx.fillStyle = '#f59e0b'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
-            if (d.type === 'dash') ctx.setLineDash([7, 5]);
-
-            ctx.beginPath(); ctx.moveTo(d.start.x, d.start.y);
-            if (d.type === 'curve' && d.control) ctx.quadraticCurveTo(d.control.x, d.control.y, d.end.x, d.end.y);
-            else ctx.lineTo(d.end.x, d.end.y);
-            ctx.stroke();
-
-            let angle = (d.type === 'curve' && d.control) ? Math.atan2(d.end.y - d.control.y, d.end.x - d.control.x) : Math.atan2(d.end.y - d.start.y, d.end.x - d.start.x);
-            ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(d.end.x, d.end.y);
-            ctx.lineTo(d.end.x - 12 * Math.cos(angle - Math.PI/6), d.end.y - 12 * Math.sin(angle - Math.PI/6));
-            ctx.lineTo(d.end.x - 12 * Math.cos(angle + Math.PI/6), d.end.y - 12 * Math.sin(angle + Math.PI/6));
-            ctx.closePath(); ctx.fill(); ctx.restore();
+        function syncTeamStyle(teamMark) {
+            const chosenColor = document.getElementById(`picker-team${teamMark}`).value;
+            document.getElementById(`box-team${teamMark}`).style.borderTopColor = chosenColor;
         }
 
-        // --- 触控监听 ---
-        uiCanvas.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                touchStartDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-                lastTouchX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-                lastTouchY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        function processSmartBalanceDivide() {
+            const registeredPlayers = players.filter(p => p.registered);
+            if (registeredPlayers.length < 2) {
+                alert("当前签到人数不足 2 人，无法进行智能均分！");
                 return;
             }
 
-            const r = uiCanvas.getBoundingClientRect();
-            const touchX = e.touches[0].clientX - r.left; const touchY = e.touches[0].clientY - r.top;
-            
-            let target = null; const w = uiCanvas.width; const h = uiCanvas.height;
-            players.forEach(p => { if(Math.hypot(p.x * w - touchX, p.y * h - touchY) < 26) target = p; });
+            let matchGKs = registeredPlayers.filter(p => p.matchGK);
+            let fieldPlayers = registeredPlayers.filter(p => !p.matchGK);
 
-            if (toolMode === 'select') {
-                if (target) {
-                    movingPlayer = target; activePlayer = target; popEditor(target);
-                } else {
-                    activePlayer = null; hideEditor();
+            let teamA = [];
+            let teamB = [];
+
+            if (matchGKs.length >= 2) {
+                teamA.push(matchGKs[0]);
+                teamB.push(matchGKs[1]);
+                for(let i = 2; i < matchGKs.length; i++) {
+                    fieldPlayers.push(matchGKs[i]);
                 }
-            } else {
-                activeLine = { type: toolMode, start: {x:touchX, y:touchY}, end: {x:touchX, y:touchY} };
+            } else if (matchGKs.length === 1) {
+                teamA.push(matchGKs[0]);
             }
-            updateUICanvas();
-        }, {passive: true});
 
-        uiCanvas.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2) {
-                const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            fieldPlayers.sort((a, b) => calculateScore(b) - calculateScore(a));
 
-                currentScale = Math.max(0.7, Math.min(2.5, currentScale * (dist / touchStartDist)));
-                offsetX += (midX - lastTouchX); offsetY += (midY - lastTouchY);
-                applyPitchTransform();
+            fieldPlayers.forEach((player) => {
+                let scoreA = teamA.reduce((sum, p) => sum + calculateScore(p), 0);
+                let scoreB = teamB.reduce((sum, p) => sum + calculateScore(p), 0);
 
-                touchStartDist = dist; lastTouchX = midX; lastTouchY = midY;
+                if (teamA.length === teamB.length) {
+                    if (scoreA <= scoreB) teamA.push(player);
+                    else teamB.push(player);
+                } else if (teamA.length < teamB.length) {
+                    teamA.push(player);
+                } else {
+                    teamB.push(player);
+                }
+            });
+
+            currentTeamAData = teamA;
+            currentTeamBData = teamB;
+
+            document.getElementById('interactive-board-section').style.display = 'block';
+            document.getElementById('output-section').style.display = 'none';
+            swapSelection = [];
+
+            renderBoardLists();
+        }
+
+        function renderBoardLists() {
+            const listA = document.getElementById('list-teamA');
+            const listB = document.getElementById('list-teamB');
+            listA.innerHTML = '';
+            listB.innerHTML = '';
+
+            const renderItem = (p) => {
+                const item = document.createElement('div');
+                item.className = 'draggable-player-item';
+                item.setAttribute('data-id', p.id);
+                if (swapSelection.includes(p.id)) {
+                    item.classList.add('selected-for-swap');
+                }
+                
+                item.innerHTML = `
+                    <div style="font-weight:600; color:#fff;">${p.name} ${p.matchGK ? '🧤' : ''}</div>
+                    <div style="font-size:11px; color:var(--text-muted); font-family:monospace;">
+                        ${p.level}档 | ${p.positions[0]}
+                    </div>
+                `;
+                item.onclick = () => toggleSwapSelection(p.id);
+                return item;
+            };
+
+            currentTeamAData.forEach(p => listA.appendChild(renderItem(p)));
+            currentTeamBData.forEach(p => listB.appendChild(renderItem(p)));
+
+            const pA = currentTeamAData.reduce((sum, p) => sum + calculateScore(p), 0);
+            const pB = currentTeamBData.reduce((sum, p) => sum + calculateScore(p), 0);
+            document.getElementById('badge-countA').innerText = currentTeamAData.length;
+            document.getElementById('badge-powerA').innerText = pA;
+            document.getElementById('badge-countB').innerText = currentTeamBData.length;
+            document.getElementById('badge-powerB').innerText = pB;
+        }
+
+        function toggleSwapSelection(id) {
+            const idx = swapSelection.indexOf(id);
+            if (idx > -1) swapSelection.splice(idx, 1);
+            else {
+                if (swapSelection.length >= 2) swapSelection.shift();
+                swapSelection.push(id);
+            }
+            renderBoardLists();
+        }
+
+        function swapSelectedPlayers() {
+            if (swapSelection.length !== 2) {
+                alert("请在编排面板中点击选择【两名不同的队员】来进行对调操作！");
                 return;
             }
+            const id1 = swapSelection[0];
+            const id2 = swapSelection[1];
 
-            if(e.cancelable) e.preventDefault();
-            const r = uiCanvas.getBoundingClientRect();
-            const touchX = e.touches[0].clientX - r.left; const touchY = e.touches[0].clientY - r.top;
-            const w = uiCanvas.width; const h = uiCanvas.height;
+            let p1 = currentTeamAData.find(p => p.id === id1) || currentTeamBData.find(p => p.id === id1);
+            let p2 = currentTeamAData.find(p => p.id === id2) || currentTeamBData.find(p => p.id === id2);
 
-            if (movingPlayer) {
-                movingPlayer.x = Math.max(0.02, Math.min(0.98, touchX / w));
-                movingPlayer.y = Math.max(0.03, Math.min(0.97, touchY / h));
-                updateUICanvas();
-                if(activePlayer === movingPlayer) popEditor(movingPlayer);
-            } else if (activeLine) {
-                if (activeLine.type === 'curve') {
-                    activeLine.end = {x:touchX, y:touchY};
-                    activeLine.control = { x: (activeLine.start.x + touchX)/2 + (touchY - activeLine.start.y)*0.25, y: (activeLine.start.y + touchY)/2 - (touchX - activeLine.start.x)*0.25 };
-                } else {
-                    activeLine.end = {x:touchX, y:touchY};
+            let idx1A = currentTeamAData.findIndex(p => p.id === id1);
+            let idx1B = currentTeamBData.findIndex(p => p.id === id1);
+            let idx2A = currentTeamAData.findIndex(p => p.id === id2);
+            let idx2B = currentTeamBData.findIndex(p => p.id === id2);
+
+            if (idx1A > -1) currentTeamAData[idx1A] = p2;
+            if (idx1B > -1) currentTeamBData[idx1B] = p2;
+            if (idx2A > -1) currentTeamAData[idx2A] = p1;
+            if (idx2B > -1) currentTeamBData[idx2B] = p1;
+
+            swapSelection = [];
+            renderBoardLists();
+        }
+
+        function initDragAndDrop() {
+            const config = {
+                group: 'shared-team-group',
+                ghostClass: 'drag-ghost-class',
+                animation: 180,
+                onEnd: function () {
+                    const grabIdListA = Array.from(document.getElementById('list-teamA').children).map(el => el.getAttribute('data-id'));
+                    const grabIdListB = Array.from(document.getElementById('list-teamB').children).map(el => el.getAttribute('data-id'));
+
+                    const allRegs = players.filter(p => p.registered);
+                    currentTeamAData = grabIdListA.map(id => allRegs.find(p => p.id === id)).filter(Boolean);
+                    currentTeamBData = grabIdListB.map(id => allRegs.find(p => p.id === id)).filter(Boolean);
+
+                    renderBoardLists();
                 }
-                updateUICanvas();
+            };
+            Sortable.create(document.getElementById('list-teamA'), config);
+            Sortable.create(document.getElementById('list-teamB'), config);
+        }
+
+        function getStrDisplayWidth(str) {
+            let len = 0;
+            for (let i = 0; i < str.length; i++) {
+                if (str.charCodeAt(i) > 127 || str.charCodeAt(i) == 94) len += 2;
+                else len += 1;
             }
-        }, {passive: false});
+            return len;
+        }
 
-        uiCanvas.addEventListener('touchend', () => {
-            if (activeLine && Math.hypot(activeLine.end.x - activeLine.start.x, activeLine.end.y - activeLine.start.y) > 10) {
-                tacticalLines.push(activeLine); updateLinesCanvas();
-            }
-            movingPlayer = null; activeLine = null; updateUICanvas();
-        });
+        function padRightToWidth(str, targetWidth) {
+            let curWidth = getStrDisplayWidth(str);
+            if (curWidth >= targetWidth) return str;
+            let neededSpaces = Math.ceil((targetWidth - curWidth) / 2);
+            return str + " ".repeat(neededSpaces);
+        }
 
-        function applyPitchTransform() { pitchTransformWrapper.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${currentScale})`; }
+        function getRowBadgeIcon(num) {
+            const badges = ['','❶','❷','❸','❹','❺','❻','❼','❽','❾','❿','⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳'];
+            return badges[num] || num + '.';
+        }
 
-        // --- 赛制切换配置 ---
-        function switchSystem(systemType, formationCode) {
-            activeSystem = systemType;
+        /* ---------------- 核心改造：并列对位文本生成器 ---------------- */
+        function generateFinalExportText() {
+            const nameA = document.getElementById('input-nameTeamA').value.trim() || "红队";
+            const nameB = document.getElementById('input-nameTeamB').value.trim() || "蓝队";
+
+            const tTime = document.getElementById('m-time').value.trim() || "未定";
+            const tVenue = document.getElementById('m-venue').value.trim() || "未定";
+            const tSupplies = document.getElementById('m-supplies').value.trim() || "常规自带";
+            const tReferee = document.getElementById('m-referee').value.trim() || "AA自理";
+            const tLive = document.getElementById('m-live').value.trim() || "无";
+            const tPeriods = document.getElementById('m-periods').value.trim() || "常规赛制";
+            const tRemark = document.getElementById('m-remark').value.trim() || "无";
+
+            let txt = `＝ TANTU FOOTBALL 赛事公告 ＝\n`;
+            txt += `📅 时间：${tTime}\n`;
+            txt += `📍 场地：${tVenue}\n`;
+            txt += `⏱️ 赛制：${tPeriods}\n`;
+            txt += `🏁 裁判：${tReferee}\n`;
+            txt += `📦 物资：${tSupplies}\n`;
+            txt += `📺 直播：${tLive}\n`;
+            txt += `📝 备注：${tRemark}\n`;
+            txt += `─────────────────────\n\n`;
+
+            // 1. 提取出战名单，并且进行【常规队员】和【守门员】的分流分离
+            const fieldsA = currentTeamAData.filter(p => !p.matchGK);
+            const gksA = currentTeamAData.filter(p => p.matchGK);
+
+            const fieldsB = currentTeamBData.filter(p => !p.matchGK);
+            const gksB = currentTeamBData.filter(p => p.matchGK);
+
+            // 2. 动态计算左半部分最大占位宽度（用于确保 VS 符号和右队垂直精准对齐）
+            // 左侧内容由：排数徽章(2) + 空格(1) + 名字 + 额外标注组成
+            let maxLeftPartWidth = 0;
             
-            if (systemType === 6) {
-                pitchTransformWrapper.style.aspectRatio = "42 / 22"; 
-                document.getElementById('pitch-tag').innerText = "FIFA 标准 6 人场";
-            } else {
-                pitchTransformWrapper.style.aspectRatio = "105 / 68";
-                document.getElementById('pitch-tag').innerText = `国际标准 ${systemType} 人场`;
+            // 扫描常规队员和门将
+            fieldsA.forEach(p => {
+                let w = getStrDisplayWidth(p.name);
+                if (w > maxLeftPartWidth) maxLeftPartWidth = w;
+            });
+            gksA.forEach(p => {
+                let w = getStrDisplayWidth(p.name + "(门将)");
+                if (w > maxLeftPartWidth) maxLeftPartWidth = w;
+            });
+            if (maxLeftPartWidth < 8) maxLeftPartWidth = 8; // 安全底线
+
+            // 3. 头部对位标题信息
+            // 格式化左侧标题
+            let titleLeft = `【${nameA}】(${currentTeamAData.length}人)`;
+            let paddedTitleLeft = padRightToWidth(titleLeft, maxLeftPartWidth + 6); // 留出徽章占位
+            txt += `${paddedTitleLeft} 🆚  【${nameB}】(${currentTeamBData.length}人)\n`;
+            txt += `─────────────────────\n`;
+
+            // 4. 并列生成常规队员对位行
+            const maxFieldRows = Math.max(fieldsA.length, fieldsB.length);
+            let badgeIndex = 1;
+
+            for (let i = 0; i < maxFieldRows; i++) {
+                let leftStr = "";
+                let rightStr = "";
+                const badge = getRowBadgeIcon(badgeIndex++);
+
+                // 组装左队常规球员（不显示档位和位置）
+                if (i < fieldsA.length) {
+                    leftStr = `${badge} ${fieldsA[i].name}`;
+                } else {
+                    leftStr = `${badge} ------`; // 缺阵占位
+                }
+
+                // 组装右队常规球员（不显示档位和位置）
+                if (i < fieldsB.length) {
+                    rightStr = `${badge} ${fieldsB[i].name}`;
+                } else {
+                    rightStr = `${badge} ------`;
+                }
+
+                // 精准补足左侧宽度，形成纵向隔空对齐
+                let alignedLeft = padRightToWidth(leftStr, maxLeftPartWidth + 5);
+                txt += `${alignedLeft} 🆚  ${rightStr}\n`;
             }
 
-            const btnKey = `${systemType}_${formationCode}`;
-            document.querySelectorAll('.system-btn').forEach(btn => btn.classList.remove('active-tool'));
-            event.target.classList.add('active-tool');
+            // 5. 特殊处理：专属守门员行（被强制提取并固定在最后一行展示）
+            const maxGkRows = Math.max(gksA.length, gksB.length);
+            if (maxGkRows > 0) {
+                txt += `─────────────────────\n`; // 加一条分割线隔离门将
+                for (let i = 0; i < maxGkRows; i++) {
+                    let leftStr = "";
+                    let rightStr = "";
+                    const badge = "🧤";
 
-            const home = systemFormations[btnKey]; const away = buildAwayMirror(home);
-            players = [...home, ...away, { id:888, type:'ball', x:0.5, y:0.5 }];
-            
-            setTimeout(() => { initSizeConfig(); }, 50);
+                    if (i < gksA.length) {
+                        leftStr = `${badge} ${gksA[i].name}(门将)`;
+                    } else {
+                        leftStr = `${badge} ------`;
+                    }
+
+                    if (i < gksB.length) {
+                        rightStr = `${badge} ${gksB[i].name}(门将)`;
+                    } else {
+                        rightStr = `${badge} ------`;
+                    }
+
+                    let alignedLeft = padRightToWidth(leftStr, maxLeftPartWidth + 5);
+                    txt += `${alignedLeft} 🆚  ${rightStr}\n`;
+                }
+            }
+
+            txt += `\n⚙️ 战力天平已由算法锁死，请准时到场对位。`;
+
+            document.getElementById('result-text').innerText = txt;
+            document.getElementById('output-section').style.display = 'block';
+            document.getElementById('output-section').scrollIntoView({ behavior: 'smooth' });
         }
 
-        function changeMTool(tool) {
-            toolMode = tool;
-            ['select', 'line', 'dash', 'curve'].forEach(t => document.getElementById(`m-tool-${t}`).classList.remove('active-tool'));
-            document.getElementById(`m-tool-${tool}`).classList.add('active-tool');
+        function copyResult() {
+            const content = document.getElementById('result-text').innerText;
+            navigator.clipboard.writeText(content).then(() => {
+                alert('🏆 左右并列对位名单已成功复制！可以直接去微信群粘贴发布了。');
+            }).catch(err => {
+                alert('复制失败，请手动长选上方文本框内容进行复制。');
+            });
         }
-
-        function addExtra(team) {
-            const id = Date.now();
-            if(team === 'ball') players.push({ id, type:'ball', x:0.5, y:0.5 });
-            else players.push({ id, num:'+', name:'替补', team, x:0.5, y:0.15 });
-            updateUICanvas();
-        }
-
-        // 其他辅助函数
-        function toggleGrid() { isGridVisible = !isGridVisible; document.getElementById('btn-grid').classList.toggle('bg-emerald-600', isGridVisible); drawDynamicPitch(); }
-        function changeView() {
-            viewType = viewType === 'full' ? 'half' : 'full';
-            document.getElementById('btn-view').innerText = viewType === 'full' ? '全场' : '半场';
-            if (viewType === 'half') { pitchTransformWrapper.style.clipPath = 'inset(0 50% 0 0)'; currentScale = 1.4; offsetX = uiCanvas.width * 0.22; } 
-            else { pitchTransformWrapper.style.clipPath = 'none'; currentScale = 1; offsetX = 0; offsetY = 0; }
-            applyPitchTransform();
-        }
-        function clearCanvasLines() { tacticalLines = []; updateLinesCanvas(); }
-        function popEditor(p) { if(p.type === 'ball') return; document.getElementById('m-editor').classList.remove('hidden'); document.getElementById('m-name').value = p.name; document.getElementById('m-num').value = p.num; }
-        function hideEditor() { document.getElementById('m-editor').classList.add('hidden'); }
-        function syncMobilePlayer() { if(activePlayer) { activePlayer.name = document.getElementById('m-name').value; activePlayer.num = document.getElementById('m-num').value; updateUICanvas(); } }
-        function deletePlayer() { if(activePlayer) { players = players.filter(p => p !== activePlayer); activePlayer = null; hideEditor(); updateUICanvas(); } }
-        function duplicatePlayer() { if(activePlayer) { players.push({ id:Date.now(), num:activePlayer.num, name:activePlayer.name+'_克隆', team:activePlayer.team, x:0.5, y:0.5 }); updateUICanvas(); } }
-        function exportTactics() { const expCanvas = document.createElement('canvas'); expCanvas.width = bgCanvas.width; expCanvas.height = bgCanvas.height; const expCtx = expCanvas.getContext('2d'); expCtx.drawImage(bgCanvas,0,0); expCtx.drawImage(drawCanvas,0,0); expCtx.drawImage(uiCanvas,0,0); const link = document.createElement('a'); link.download = `坦途战术导出_${Date.now()}.png`; link.href = expCanvas.toDataURL('image/png'); link.click(); }
-        function initSizeConfig() { const w = pitchTransformWrapper.clientWidth; const h = pitchTransformWrapper.clientHeight; [bgCanvas, drawCanvas, uiCanvas].forEach(c => { c.width = w; c.height = h; }); drawDynamicPitch(); updateLinesCanvas(); updateUICanvas(); }
-
-        window.addEventListener('resize', initSizeConfig);
-        const initialHome = systemFormations["11_442"];
-        players = [...initialHome, ...buildAwayMirror(initialHome), { id:888, type:'ball', x:0.5, y:0.5 }];
-        setTimeout(initSizeConfig, 100);
     </script>
 </body>
 </html>
